@@ -38,34 +38,13 @@ if errorlevel 1 (
 
 :: Instalar dependencias si no están instaladas
 echo [INFO] Verificando dependencias necesarias...
-:: Verificamos que version de Python esta usando realmente el entorno
-python --version 
-:: Primero asegurar que pip, setuptools y wheel estén actualizados (soluciona muchos errores de instalación)
-python -m pip install --upgrade pip setuptools wheel
-
-:: Intentar instalar desde el archivo de requerimientos completo (SIN --quiet para ver el error)
-pip install -r requirements-full.txt
-
-if errorlevel 1 (
-    echo.
-    echo [ERROR] Error durante la instalacion de dependencias.
-    echo.
-    echo Esto suele ocurrir porque faltan las Herramientas de Compilacion de C++.
-    echo Para solucionarlo:
-    echo 1. Descarga e instala "Microsoft C++ Build Tools" desde:
-    echo    https://visualstudio.microsoft.com/visual-cpp-build-tools/
-    echo 2. Durante la instalacion, asegúrate de marcar la opcion:
-    echo    "Desarrollo para el escritorio con C++" (Desktop development with C++)
-    echo.
-    echo Alternativamente, si usas Python 3.12 o superior, asegúrate de que tu version 
-    echo de Python no sea una version experimental (como Python 3.13/3.14).
-    pause
-    exit /b 1
-)
+:: Volvemos al modo silencioso pero asegurando que use requirements-full.txt
+python -m pip install --upgrade pip setuptools wheel --quiet
+pip install -r requirements-full.txt --quiet
 
 echo.
 echo ========================================================
-echo [OK] Todo listo. Iniciando script de voz...
+echo [OK] Todo listo. Iniciando JARVIS...
 echo Comandos: "abri navegador" / "detener programa"
 echo.
 
