@@ -38,11 +38,13 @@ if errorlevel 1 (
 
 :: Instalar dependencias si no están instaladas
 echo [INFO] Verificando dependencias necesarias...
-:: Primero asegurar que pip, setuptools y wheel estén actualizados (soluciona errores de distutils en Python 3.12+)
-python -m pip install --upgrade pip setuptools wheel --quiet --disable-pip-version-check
+:: Verificamos que version de Python esta usando realmente el entorno
+python --version 
+:: Primero asegurar que pip, setuptools y wheel estén actualizados (soluciona muchos errores de instalación)
+python -m pip install --upgrade pip setuptools wheel
 
-:: Intentar instalar desde el archivo de requerimientos completo
-pip install -r requirements-full.txt --quiet --disable-pip-version-check
+:: Intentar instalar desde el archivo de requerimientos completo (SIN --quiet para ver el error)
+pip install -r requirements-full.txt
 
 if errorlevel 1 (
     echo.
