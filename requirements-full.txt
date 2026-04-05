@@ -1,0 +1,11 @@
+# Dependencias Base (Server/Lite)
+flask
+requests
+python-dotenv
+colorama
+
+# Dependencias Full Client (Voz/Multimedia)
+speechrecognition
+edge-tts
+pygame
+pyaudio

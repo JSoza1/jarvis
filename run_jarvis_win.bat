@@ -38,15 +38,25 @@ if errorlevel 1 (
 
 :: Instalar dependencias si no están instaladas
 echo [INFO] Verificando dependencias necesarias...
-pip install speechrecognition edge-tts pygame python-dotenv requests colorama flask --quiet --disable-pip-version-check
-pip install pyaudio --quiet --disable-pip-version-check
+:: Primero asegurar que pip, setuptools y wheel estén actualizados (soluciona errores de distutils en Python 3.12+)
+python -m pip install --upgrade pip setuptools wheel --quiet --disable-pip-version-check
+
+:: Intentar instalar desde el archivo de requerimientos completo
+pip install -r requirements-full.txt --quiet --disable-pip-version-check
 
 if errorlevel 1 (
+    echo.
     echo [ERROR] Error durante la instalacion de dependencias.
-    echo Probablemente falte PyAudio. Intenta correr:
-    echo pip install pipwin
-    echo pipwin install pyaudio
-    echo O descarga el wheel desde: https://www.lfd.uci.edu/~gohlke/pythonlibs/#pyaudio
+    echo.
+    echo Esto suele ocurrir porque faltan las Herramientas de Compilacion de C++.
+    echo Para solucionarlo:
+    echo 1. Descarga e instala "Microsoft C++ Build Tools" desde:
+    echo    https://visualstudio.microsoft.com/visual-cpp-build-tools/
+    echo 2. Durante la instalacion, asegúrate de marcar la opcion:
+    echo    "Desarrollo para el escritorio con C++" (Desktop development with C++)
+    echo.
+    echo Alternativamente, si usas Python 3.12 o superior, asegúrate de que tu version 
+    echo de Python no sea una version experimental (como Python 3.13/3.14).
     pause
     exit /b 1
 )
