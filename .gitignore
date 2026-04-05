@@ -1,0 +1,31 @@
+# --- DATOS SENSIBLES ---
+.env
+
+# --- ARCHIVOS TEMPORALES DE JARVIS ---
+jarvis_voz.mp3
+*.mp3
+*.wav
+
+# --- ENTORNOS VIRTUALES ---
+.venv/
+env/
+venv/
+ENV/
+
+# --- PYTHON ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+.cache/
+
+# --- IDEs ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- LOGS ---
+*.log
