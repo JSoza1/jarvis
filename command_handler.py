@@ -221,15 +221,15 @@ class CommandHandler:
         # Si la variable de entorno contiene el *nombre de la carpeta* (ej: "cazador_de_chambas")
         # en lugar de una ruta absoluta, buscamos esa carpeta compartiendo el directorio padre de Jarvis.
         if valor_env and not os.path.isabs(valor_env):
-            # Sube un nivel desde la carpeta actual (ej: de /Programacion/jarvis a /Programacion)
+            # Sube un nivel desde la carpeta actual (ej: de /jarvis a nivel general)
             directorio_padre = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             carpeta_objetivo = os.path.join(directorio_padre, valor_env)
             
-            # Como los proyectos de python del usuario siempre inician con main.py
+            # Como los proyectos de python siempre inician con main.py
             ruta_main_py = os.path.join(carpeta_objetivo, "main.py")
             if os.path.isfile(ruta_main_py):
                 ruta_ejecutar = ruta_main_py
-                es_python = True # Forzamos python ya que es main.py
+                es_python = True # Forzamos python ya que es main.py directamente
             else:
                 # Si no hay main.py, buscamos el archivo predeterminado dentro de la carpeta
                 ruta_ejecutar = os.path.join(carpeta_objetivo, ruta_defecto)
@@ -264,18 +264,38 @@ class CommandHandler:
                         return None
                         
             elif "linux" in sys.platform: # ---- LINUX / TERMUX ----
-                if es_python:
-                    dir_base = os.path.dirname(os.path.abspath(ruta_ejecutar))
-                    # nohup evitan que matar a Jarvis cierre este proceso inesperadamente
-                    proc = subprocess.Popen(['nohup', 'python3', ruta_ejecutar], start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=dir_base)
+                import shutil
+                dir_base = os.path.dirname(os.path.abspath(ruta_ejecutar))
+                nombre_archivo = os.path.basename(ruta_ejecutar)
+                
+                # METODO PARA ABRIR OTRA PESTAÑA / TERMINAL EN TERMUX: TMUX
+                # Termux no permite "popup" de ventanas facil, TMUX es el administrador de terminales por defecto.
+                if shutil.which("tmux"):
+                    print(f"\n[SISTEMA TERMUX]: Abriendo OTRA TERMINAL usando TMUX.")
+                    sesion = os.path.basename(dir_base).replace(" ", "_")
+                    cmd = f"python3 {nombre_archivo}" if es_python else f"bash {nombre_archivo}"
+                    proc = subprocess.Popen(['tmux', 'new-session', '-d', '-s', sesion, cmd], cwd=dir_base)
+                    print(f"[SISTEMA TERMUX]: Escibe 'tmux a' para ver la pantalla del programa.")
                     return proc
                 else:
-                    dir_base = os.path.dirname(os.path.abspath(ruta_ejecutar))
-                    if ruta_ejecutar.endswith('.sh'):
-                        proc = subprocess.Popen(['nohup', 'bash', ruta_ejecutar], start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=dir_base)
+                    print(f"\n[SISTEMA TERMUX]: TMUX no encontrado. Intentando invocar nueva terminal de Android...")
+                    # METODO NATIVO INTENT: Intenta forzar a Termux a abrir una pestaña nueva sin TMUX
+                    if es_python:
+                        # am startservice lanza un service que le dice a Termux crear una nueva sesion interactiva
+                        intent_cmd = [
+                            'am', 'startservice', '--user', '0',
+                            '-n', 'com.termux/com.termux.app.RunCommandService',
+                            '-a', 'com.termux.RUN_COMMAND',
+                            '--es', 'com.termux.RUN_COMMAND_PATH', '/data/data/com.termux/files/usr/bin/python3',
+                            '--es', 'com.termux.RUN_COMMAND_WORKDIR', dir_base,
+                            '--ez', 'com.termux.RUN_COMMAND_BACKGROUND', 'False',
+                            '--es', 'com.termux.RUN_COMMAND_SESSION_ACTION', '1',
+                            '--esa', 'com.termux.RUN_COMMAND_ARGUMENTS', nombre_archivo
+                        ]
+                        proc = subprocess.Popen(intent_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                         return proc
                     else:
-                        proc = subprocess.Popen(['nohup', ruta_ejecutar], start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=dir_base)
+                        proc = subprocess.Popen(['nohup', 'bash', ruta_ejecutar], start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=dir_base)
                         return proc
                     
             elif sys.platform == "darwin": # ---- MAC ----

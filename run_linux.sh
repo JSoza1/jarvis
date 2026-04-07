@@ -18,6 +18,29 @@ then
     exit 1
 fi
 
+# --- AUTOCONFIGURACIÓN EXCLUSIVA PARA TERMUX ---
+if command -v pkg &> /dev/null; then
+    # Revisar e instalar tmux automáticamente para soporte de ventanas separadas
+    if ! command -v tmux &> /dev/null; then
+        echo "[INFO]: TMUX no encontrado. Autoinstalando para darte soporte de Multi-Pantalla..."
+        pkg install tmux -y
+    fi
+
+    # Configurar permisos de API Android para ventanas dinámicas
+    TERMUX_DIR="$HOME/.termux"
+    TERMUX_PROP="$TERMUX_DIR/termux.properties"
+    
+    mkdir -p "$TERMUX_DIR"
+    
+    # Comprueba si ya está actvada la preferencia
+    if ! grep -q "^allow-external-apps=true" "$TERMUX_PROP" 2>/dev/null; then
+        echo "[INFO]: Activando permisos de RunCommandService en Termux..."
+        echo "allow-external-apps=true" >> "$TERMUX_PROP"
+        echo "[OK]: Permisos listos. (Consejo: Tal vez requieras reiniciar Termux la primera vez que esto se active)."
+    fi
+fi
+# ----------------------------------------------
+
 # 2. Gestionar el Entorno Virtual (.venv_linux)
 if [ ! -d ".venv_linux" ]; then
     echo "[INFO]: Creando entorno virtual nuevo (.venv_linux)..."
