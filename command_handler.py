@@ -214,8 +214,26 @@ class CommandHandler:
         ni se tilda esperando a que el otro ejecutable cierre.
         """
         # 1. Buscamos ruta según VARIABLE DE ENTORNO en la compu. 
-        ruta_ejecutar = os.getenv(ruta_env) if ruta_env else None
+        valor_env = os.getenv(ruta_env) if ruta_env else None
+        ruta_ejecutar = valor_env
         
+        # --- ALGORITMO DE BÚSQUEDA RELATIVA INTELIGENTE ---
+        # Si la variable de entorno contiene el *nombre de la carpeta* (ej: "cazador_de_chambas")
+        # en lugar de una ruta absoluta, buscamos esa carpeta compartiendo el directorio padre de Jarvis.
+        if valor_env and not os.path.isabs(valor_env):
+            # Sube un nivel desde la carpeta actual (ej: de /Programacion/jarvis a /Programacion)
+            directorio_padre = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            carpeta_objetivo = os.path.join(directorio_padre, valor_env)
+            
+            # Como los proyectos de python del usuario siempre inician con main.py
+            ruta_main_py = os.path.join(carpeta_objetivo, "main.py")
+            if os.path.isfile(ruta_main_py):
+                ruta_ejecutar = ruta_main_py
+                es_python = True # Forzamos python ya que es main.py
+            else:
+                # Si no hay main.py, buscamos el archivo predeterminado dentro de la carpeta
+                ruta_ejecutar = os.path.join(carpeta_objetivo, ruta_defecto)
+
         # Si da vacío, usamos por ejemplo el archivo ".bat" por defecto que tengas ahí mismo
         if not ruta_ejecutar:
             print(f"[Aviso]: Usando la predeterminada. No se halló variable de entorno: '{ruta_env}'")
