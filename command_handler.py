@@ -245,20 +245,29 @@ class CommandHandler:
                         os.startfile(ruta_ejecutar)
                         return None
                         
-            elif "linux" in sys.platform: # ---- LINUX ----
+            elif "linux" in sys.platform: # ---- LINUX / TERMUX ----
                 if es_python:
                     dir_base = os.path.dirname(os.path.abspath(ruta_ejecutar))
-                    # nohup y start_new_session evitan que matar a Jarvis cierre este proceso
-                    subprocess.Popen(['nohup', 'python3', ruta_ejecutar], start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=dir_base)
+                    # nohup evitan que matar a Jarvis cierre este proceso inesperadamente
+                    proc = subprocess.Popen(['nohup', 'python3', ruta_ejecutar], start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=dir_base)
+                    return proc
                 else:
-                    subprocess.Popen(['nohup', 'xdg-open', ruta_ejecutar], start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    dir_base = os.path.dirname(os.path.abspath(ruta_ejecutar))
+                    if ruta_ejecutar.endswith('.sh'):
+                        proc = subprocess.Popen(['nohup', 'bash', ruta_ejecutar], start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=dir_base)
+                        return proc
+                    else:
+                        proc = subprocess.Popen(['nohup', ruta_ejecutar], start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=dir_base)
+                        return proc
                     
             elif sys.platform == "darwin": # ---- MAC ----
+                dir_base = os.path.dirname(os.path.abspath(ruta_ejecutar))
                 if es_python:
-                    dir_base = os.path.dirname(os.path.abspath(ruta_ejecutar))
-                    subprocess.Popen(['python3', ruta_ejecutar], start_new_session=True, cwd=dir_base)
+                    proc = subprocess.Popen(['python3', ruta_ejecutar], start_new_session=True, cwd=dir_base)
+                    return proc
                 else:
-                    subprocess.Popen(['open', ruta_ejecutar], start_new_session=True)
+                    proc = subprocess.Popen(['open', ruta_ejecutar], start_new_session=True, cwd=dir_base)
+                    return proc
 
         except Exception as e:
             print(f"[ERROR SISTEMA]: No se pudo abrir {ruta_ejecutar}. Razón: {e}")
