@@ -273,20 +273,26 @@ class CommandHandler:
                 if shutil.which("tmux"):
                     print(f"\n[SISTEMA TERMUX]: Abriendo OTRA TERMINAL usando TMUX.")
                     sesion = os.path.basename(dir_base).replace(" ", "_")
-                    cmd = f"python3 {nombre_archivo}" if es_python else f"bash {nombre_archivo}"
-                    proc = subprocess.Popen(['tmux', 'new-session', '-d', '-s', sesion, cmd], cwd=dir_base)
+                    
+                    # El 'read' final evita que TMUX cierre la sesión de golpe si main.py genera un error rápido o termina (ej: un simple hola mundo)
+                    cmd = f"python3 {nombre_archivo}; echo '\n[Proceso terminado. Presiona Enter para salir...]'; read" if es_python else f"bash {nombre_archivo}; echo '\n[Proceso terminado. Presiona Enter para salir...]'; read"
+                    
+                    # El argumento -c asegura que la sesión de TMUX arranque estrictamente en la carpeta de tu bot.
+                    proc = subprocess.Popen(['tmux', 'new-session', '-d', '-c', dir_base, '-s', sesion, cmd], cwd=dir_base)
                     print(f"[SISTEMA TERMUX]: Escibe 'tmux a' para ver la pantalla del programa.")
                     return proc
                 else:
                     print(f"\n[SISTEMA TERMUX]: TMUX no encontrado. Intentando invocar nueva terminal de Android...")
                     # METODO NATIVO INTENT: Intenta forzar a Termux a abrir una pestaña nueva sin TMUX
                     if es_python:
+                        python_path = shutil.which("python3") or shutil.which("python") or '/data/data/com.termux/files/usr/bin/python3'
+                        
                         # am startservice lanza un service que le dice a Termux crear una nueva sesion interactiva
                         intent_cmd = [
                             'am', 'startservice', '--user', '0',
                             '-n', 'com.termux/com.termux.app.RunCommandService',
                             '-a', 'com.termux.RUN_COMMAND',
-                            '--es', 'com.termux.RUN_COMMAND_PATH', '/data/data/com.termux/files/usr/bin/python3',
+                            '--es', 'com.termux.RUN_COMMAND_PATH', python_path,
                             '--es', 'com.termux.RUN_COMMAND_WORKDIR', dir_base,
                             '--ez', 'com.termux.RUN_COMMAND_BACKGROUND', 'False',
                             '--es', 'com.termux.RUN_COMMAND_SESSION_ACTION', '1',
