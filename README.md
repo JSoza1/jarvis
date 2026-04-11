@@ -9,6 +9,8 @@ Introduce una arquitectura de **"Doble Cerebro"** con sistema de auto switch ent
 ## 🚀 Características Principales
 
 -   **🔊 Voz Neuronal Humana**: Generación de audio de alta fidelidad con Microsoft Edge-TTS.
+-   **🎙️ Automatización por Aplausos**: Trigger de múltiples acciones (Programas y URLs) mediante detección de doble aplauso, con gestión independiente de procesos.
+-   **🌤️ Reporte de Clima**: Consulta meteorológica en tiempo real (temperatura y estado del cielo) para Buenos Aires utilizando integración nativa con wttr.in (sin necesidad de API Keys externas).
 -   **🧠 Doble Cerebro (Fallback)**: Conexión nativa con 2 modelos de IA. Jarvis se cambia automáticamente al motor de respaldo si el principal falla.
 -   **🎭 Personalidad Configurable**: Define cómo debe hablar y actuar Jarvis mediante una simple variable en tu `.env`.
 -   **🌈 Consola con Colores**: Distinción visual por colores (Verde para Jarvis, Celeste para el Usuario) y limpieza de Markdown para una lectura de voz fluida.
@@ -67,6 +69,12 @@ MODEL_IA_2=llama-3.3-70b-versatile
 
 # Tu toque personal
 PROMPT_PERSONALIDAD="Eres Jarvis, un asistente sofisticado y con humor argentino..."
+
+# Automatización por Aplausos (Rutas a ejecutables y URLs separadas por coma)
+JARVIS_CHROME="C:\Program Files\Google\Chrome\Application\chrome.exe"
+JARVIS_APLAUSO_PROGRAMAS="C:\Ruta\Al\Programa.exe"
+JARVIS_APLAUSO_URLS="https://google.com,https://github.com"
+JARVIS_YOUTUBE_URL="https://youtube.com/watch?v=tu_video&autoplay=1"
 ```
 
 ### 2. Ejecución
@@ -80,6 +88,8 @@ El script preparará el entorno, instalará lo que falte e iniciará a Jarvis au
 -   **Palabras de Activación**: `"Jarvis"`, `"Café"`, `"Despierta"`, `"Activar"`.
 -   **Palabras de Pausa**: `"Listo"`, `"Descansa"`, `"Silencio"`, `"Espera"`.
 -   **Palabras de Salida (Apagado en Cascada)**: `"Detener programa"`, `"Salir"`, `"Apágate"`. (Apaga cliente y servidor sincronizadamente).
+-   **Comandos de Clima**: `"¿Qué temperatura hace?"`, `"¿Cómo está el clima?"`, `"Decime el tiempo"`.
+-   **Automatización**: Activación de flujo de trabajo mediante un aplauso doble (Configurable en `.env`).
 -   **Colores de Consola**: 
     -   🟢 **Verde**: Respuestas de Jarvis.
     -   🔵 **Celeste**: Lo que Jarvis escuchó o lo que tú escribiste.
@@ -115,6 +125,15 @@ Se encuentra en la carpeta `/clientes/pc-client`. Copia esa carpeta a cualquier 
     SERVER_PORT=8000
     ```
 -   **Arranque**: Ejecuta `run_client_win.bat`. Jarvis te escuchará y te hablará desde esa computadora remota.
+
+---
+
+## 🖥️ Automatización y Ventanas
+
+Jarvis utiliza un sistema de gestión de ventanas optimizado para flujos de trabajo:
+- **Maximización**: Los programas externos se abren utilizando `SW_SHOWMAXIMIZED`.
+- **Navegador**: Las URLs de trabajo se agrupan en una única ventana de Chrome maximizada.
+- **YouTube Focus**: YouTube se lanza en una ventana independiente (`--new-window`) con un retraso de seguridad de 2 segundos para garantizar que mantenga el foco y el `autoplay` funcione correctamente sin interferir con otras aplicaciones.
 
 ---
 
