@@ -9,6 +9,8 @@ import pygame
 import sys
 import time
 import re
+import struct
+import threading
 from colorama import init, Fore, Style
 
 # Inicializamos colorama para soporte multiplataforma (Windows/Linux)
@@ -42,7 +44,8 @@ class JarvisEngine:
         ]
         
         # --- Variables de Estado y Archivos ---
-        self.esta_dormido = False 
+        self.esta_dormido = False
+        self.aplausos_activos = True  # Se puede desactivar con el comando "sin aplausos"
         self.archivo_temporal = "jarvis_voz.mp3"
         
         # --- Motor de Reconocimiento de Voz ---
@@ -152,6 +155,70 @@ class JarvisEngine:
         if not self.manejador_de_comandos.ejecutar_comando_local(texto_limpio, mudo=mudo):
             self.manejador_de_comandos.procesar_consulta_ia(texto_limpio, mudo=mudo)
 
+    def _hilo_detector_aplauso(self):
+        """
+        Corre en segundo plano de forma permanente (incluso si Jarvis está dormido).
+        Detecta dos picos de energía rápidos (patrón de aplauso) y ejecuta la rutina configurada.
+        Se puede pausar/reanudar con los comandos 'sin aplausos' / 'activar aplausos'.
+        """
+        try:
+            import pyaudio
+        except ImportError:
+            print("[APLAUSO]: PyAudio no instalado. El detector de aplausos está desactivado.")
+            return
+
+        # --- Parámetros de detección ---
+        CHUNK = 1024           # Muestras por lectura
+        RATE = 44100           # Frecuencia de muestreo
+        UMBRAL_ENERGIA = 20000 # Picos por encima de este valor se consideran un golpe
+        VENTANA_APLAUSO = 0.8  # Segundos máximos entre dos golpes para contar como aplauso
+        COOLDOWN = 2.0         # Segundos de espera tras detectar un aplauso (anti-spam)
+
+        pa = pyaudio.PyAudio()
+        stream = pa.open(format=pyaudio.paInt16, channels=1, rate=RATE,
+                         input=True, frames_per_buffer=CHUNK)
+
+        print("[APLAUSO]: Detector iniciado. 👏 Dos aplausos = rutina de aplauso.")
+
+        golpes = []          # Timestamps de cada pico detectado
+        ultimo_aplauso = 0   # Timestamp del último aplauso procesado
+
+        while True:
+            try:
+                data = stream.read(CHUNK, exception_on_overflow=False)
+
+                # Si los aplausos están desactivados, vaciamos golpes y no procesamos
+                if not self.aplausos_activos:
+                    golpes.clear()
+                    time.sleep(0.1)
+                    continue
+
+                # Calculamos el pico máximo del fragmento de audio
+                muestras = struct.unpack(f'{CHUNK}h', data)
+                energia = max(abs(m) for m in muestras)
+
+                ahora = time.time()
+
+                if energia > UMBRAL_ENERGIA:
+                    # Filtramos golpes demasiado seguidos (mismo aplauso captado dos veces)
+                    if not golpes or (ahora - golpes[-1]) > 0.1:
+                        golpes.append(ahora)
+
+                # Limpiamos golpes viejos fuera de la ventana temporal
+                golpes = [t for t in golpes if ahora - t <= VENTANA_APLAUSO]
+
+                # ¡Dos golpes en la ventana = APLAUSO DETECTADO!
+                if len(golpes) >= 2 and (ahora - ultimo_aplauso) > COOLDOWN:
+                    golpes.clear()
+                    ultimo_aplauso = ahora
+                    print("\n[APLAUSO]: 👏 ¡Aplauso detectado! Ejecutando rutina...")
+                    # Llamamos directamente al manejador, bypasseando el estado dormido
+                    self.manejador_de_comandos.ejecutar_rutina_aplauso()
+
+            except Exception as e:
+                print(f"[APLAUSO ERROR]: {e}")
+                time.sleep(0.5)
+
     def loop_hibrido(self, fuente_microfono):
         """
         Mantiene el micrófono en segundo plano y el teclado en primer plano.
@@ -163,6 +230,10 @@ class JarvisEngine:
             self.reconocedor.adjust_for_ambient_noise(origen, duration=1)
         
         self.speak("Sistemas listos. Habla o escribe.")
+
+        # --- HILO DE DETECCIÓN DE APLAUSOS (Siempre activo, ignora modo dormido) ---
+        hilo_aplauso = threading.Thread(target=self._hilo_detector_aplauso, daemon=True)
+        hilo_aplauso.start()
 
         # Hilo de Voz (Segunda plano)
         def _callback_voz(reconocedor, audio):

@@ -104,6 +104,29 @@ class CommandHandler:
                 "respuesta_voz": "Apagando el cazador de chambas.",
                 "tipo_accion": "cerrar_programa",
                 "archivo_predeterminado": "cazador_de_chambas"
+            },
+
+            {
+                "nombre_funcionalidad": "Desactivar_Aplausos",
+                "palabras_clave": ["sin aplausos", "desactivar aplausos", "para los aplausos", "no escuches aplausos"],
+                "respuesta_voz": "Entendido. Ignoraré los aplausos hasta que me lo indiques.",
+                "tipo_accion": "toggle_aplausos",
+                "valor_toggle": False
+            },
+
+            {
+                "nombre_funcionalidad": "Activar_Aplausos",
+                "palabras_clave": ["activar aplausos", "escucha aplausos", "vuelve a escuchar aplausos", "activa aplausos", "activa aplauso"],
+                "respuesta_voz": "Perfecto. Volveré a reaccionar ante los aplausos.",
+                "tipo_accion": "toggle_aplausos",
+                "valor_toggle": True
+            },
+
+            {
+                "nombre_funcionalidad": "Clima_Buenos_Aires",
+                "palabras_clave": ["temperatura", "clima", "tiempo", "cuanto hace", "cuánto hace", "qué temperatura", "que temperatura", "como esta el clima", "cómo está el clima"],
+                "respuesta_voz": None,
+                "tipo_accion": "clima"
             }
         ]
 
@@ -127,6 +150,64 @@ class CommandHandler:
             print(f"[ERROR]: Fallo al cargar motor {rol}: {e}")
             return None, "NINGUNO"
 
+    def ejecutar_rutina_aplauso(self):
+        """
+        Rutina de aplauso: se ejecuta al detectar dos aplausos.
+        Siempre activa, incluso si Jarvis está dormido.
+        Configura programas y URLs desde el .env (separados por coma).
+        """
+        import webbrowser
+        chrome = os.getenv("JARVIS_CHROME", "").strip()
+
+        # --- ACCIÓN 1: Abrir programas MAXIMIZADOS ---
+        # JARVIS_APLAUSO_PROGRAMAS=C:\ruta\prog1.exe, C:\ruta\prog2.exe
+        for ruta in os.getenv("JARVIS_APLAUSO_PROGRAMAS", "").split(","):
+            ruta = ruta.strip()
+            if not ruta:
+                continue
+            try:
+                if sys.platform == "win32":
+                    # SW_SHOWMAXIMIZED = 3 → la ventana arranca maximizada
+                    si = subprocess.STARTUPINFO()
+                    si.dwFlags = subprocess.STARTF_USESHOWWINDOW
+                    si.wShowWindow = 3
+                    subprocess.Popen([ruta], startupinfo=si)
+                else:
+                    os.startfile(ruta)
+            except Exception as e:
+                print(f"[RUTINA APLAUSO]: No se pudo abrir '{ruta}' -> {e}")
+
+        # --- ACCIÓN 2: Abrir URLs en una sola ventana Chrome maximizada ---
+        # Todas las URLs se pasan de una sola vez → Chrome las abre como pestañas en 1 ventana
+        urls = [u.strip() for u in os.getenv("JARVIS_APLAUSO_URLS", "").split(",") if u.strip()]
+        if urls:
+            try:
+                if chrome:
+                    subprocess.Popen([chrome, "--start-maximized"] + urls)
+                else:
+                    for url in urls:
+                        webbrowser.open_new_tab(url)
+            except Exception as e:
+                print(f"[RUTINA APLAUSO]: No se pudo abrir URLs -> {e}")
+
+        # --- ACCIÓN 3: Abrir YouTube en su propia ventana de Chrome ---
+        yt_url = os.getenv("JARVIS_YOUTUBE_URL", "").strip()
+        if yt_url and chrome:
+            try:
+                # PAUSA CRÍTICA: Esperamos 2 segundos para que Chrome no mezcle ventanas
+                time.sleep(2) 
+                subprocess.Popen([chrome, "--new-window", yt_url])
+            except Exception as e:
+                print(f"[RUTINA APLAUSO]: No se pudo abrir YouTube -> {e}")
+        elif yt_url:
+            webbrowser.open_new(yt_url)
+
+        # --- ACCIÓN 4: Jarvis habla ---
+        self.tts.speak("Hora de trabajar", mudo=False)
+        self.obtener_clima(mudo=False)
+
+
+
     def ejecutar_comando_local(self, entrada_voz, mudo=False):
         """Procesa la entrada de voz buscando coincidencias con los comandos locales configurados en el __init__."""
         texto_limpio = entrada_voz.lower()
@@ -137,9 +218,10 @@ class CommandHandler:
             # Revisar si el usuario mencionó alguna de las palabras clave de este bloque
             if any(palabra == texto_limpio or palabra in texto_limpio for palabra in comando.get("palabras_clave", [])):
                 
-                # Feedback auditivo de Jarvis
-                if "respuesta_voz" in comando:
-                    self.tts.speak(comando["respuesta_voz"], mudo=mudo)
+                # Feedback auditivo de Jarvis (solo si hay una respuesta definida)
+                resp = comando.get("respuesta_voz")
+                if resp:
+                    self.tts.speak(resp, mudo=mudo)
 
                 tipo_accion = comando.get("tipo_accion")
 
@@ -205,8 +287,52 @@ class CommandHandler:
                             print(f"[ERROR]: No se pudo localizar ni cerrar el script '{fragmento_ruta}': {e}")
                     return True
                 
+                # =====================================
+                # ACCIÓN: TOGGLE DE APLAUSOS
+                # =====================================
+                elif tipo_accion == "toggle_aplausos":
+                    nuevo_estado = comando.get("valor_toggle", True)
+                    self.tts.aplausos_activos = nuevo_estado
+                    estado_texto = "activados" if nuevo_estado else "desactivados"
+                    print(f"[SISTEMA]: Aplausos {estado_texto}.")
+                    return True
+
+                # =====================================
+                # ACCIÓN: CLIMA
+                # =====================================
+                elif tipo_accion == "clima":
+                    self.obtener_clima(mudo=mudo)
+                    return True
+
+
         return False # No detectó ningún comando configurado
         
+    def obtener_clima(self, ciudad="Buenos Aires", mudo=False):
+        """
+        Consulta el clima de Buenos Aires usando wttr.in (sin API Key, sin registro).
+        """
+        try:
+            # Pedimos el clima en español y formato de una sola línea
+            url = f"https://wttr.in/{ciudad.replace(' ', '+')}?format=%t+%C&lang=es"
+            resp = requests.get(url, timeout=5)
+            
+            # Forzamos UTF-8 para que el símbolo de grado no sea basura
+            resp.encoding = 'utf-8'
+            
+            if resp.status_code == 200:
+                texto = resp.text.strip()
+                # Limpieza: "+14°C Despejado" -> "14 grados Despejado"
+                texto = texto.replace("+", "").replace("°C", " grados")
+                
+                respuesta = f"Actualmente en {ciudad} hace {texto}."
+                print(f"[CLIMA]: {respuesta}")
+                self.tts.speak(respuesta, mudo=mudo)
+            else:
+                self.tts.speak("No pude conectar con el servicio de clima.", mudo=mudo)
+        except Exception as e:
+            print(f"[CLIMA ERROR]: {e}")
+            self.tts.speak("Hubo un error al consultar el clima.", mudo=mudo)
+
     def _abrir_programa_totalmente_independiente(self, ruta_env, ruta_defecto, es_python, mudo=False):
         """
         DATO CLAVE PARA EL RENDIMIENTO: Se encarga de hacer que el nuevo programa
